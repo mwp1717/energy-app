@@ -53,8 +53,13 @@ def run_ui():
         st.session_state.df = get_lv_prices_15min()
 
     # Кнопку можно оставить ниже, чтобы пользователь мог обновить вручную
-    if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
-        st.session_state.df = get_lv_prices_15min()
+    # Загружаем данные сразу, если их еще нет в памяти
+if "df" not in st.session_state:
+    st.session_state.df = get_lv_prices_15min()
+
+# Кнопку оставляем, если пользователь захочет обновить данные вручную
+if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
+    st.session_state.df = get_lv_prices_15min()
 
     # --- ОСНОВНОЙ КОНТЕНТ ---
     if "df" in st.session_state:
