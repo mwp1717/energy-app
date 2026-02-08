@@ -6,18 +6,32 @@ from app.core.analysis import daily_average
 from app.ui.locales import LANG_DATA
 
 def run_ui():
-    # 1. Настройка страницы
+    # 1. Настройка страницы (БЕЗ скрытия хедера, чтобы кнопка не пропадала)
     st.set_page_config(page_title="Energy Terminal", layout="wide")
     
-    # 2. Чистый интерфейс (скрываем только футер и мусор)
+    # 2. "Благородный" CSS: только для кнопок и скрытия футера
     st.markdown("""
         <style>
+        /* Минималистичные кнопки-ссылки */
+        .stButton > button {
+            border: none !important;
+            background: transparent !important;
+            color: #888 !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            padding: 0px !important;
+            width: auto !important;
+            min-width: 35px !important;
+            white-space: nowrap !important;
+        }
+        .stButton > button:hover {
+            color: #29b5e8 !important;
+            background: transparent !important;
+        }
+        /* Скрываем только футер */
         footer {visibility: hidden;}
+        /* Убираем красный декор в углу */
         [data-testid="stDecoration"] {display:none;}
-        #MainMenu {visibility: hidden;}
-        [data-testid="stToolbar"] {visibility: hidden;}
-        /* Убираем лишний отступ сверху */
-        .block-container {padding-top: 2rem;}
         </style>
         """, unsafe_allow_html=True)
 
@@ -25,25 +39,20 @@ def run_ui():
     with st.sidebar:
         st.title(":material/settings: Control Panel")
 
-        # 🌐 ДИЗАЙНЕРСКИЙ ПЕРЕКЛЮЧАТЕЛЬ ЯЗЫКА
+        # Переключатель языка (те самые благородные кнопки)
         if "lang" not in st.session_state: 
             st.session_state.lang = "en"
-
-        # Вместо ломающихся кнопок используем красивые "пилюли"
-        lang_map = {"en": "🇺🇸 EN", "lv": "🇱🇻 LV"}
-        selected_lang_name = st.radio(
-            "Language",
-            options=list(lang_map.values()),
-            index=0 if st.session_state.lang == "en" else 1,
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-        
-        # Обновляем язык, если выбрали другой
-        new_lang = "en" if "EN" in selected_lang_name else "lv"
-        if new_lang != st.session_state.lang:
-            st.session_state.lang = new_lang
-            st.rerun()
+            
+        # Увеличили пропорции колонок (0.15 вместо 0.1), чтобы текст не ломался
+        l1, l2, _ = st.columns([0.15, 0.15, 0.7])
+        with l1:
+            if st.button("EN"): 
+                st.session_state.lang = "en"
+                st.rerun()
+        with l2:
+            if st.button("LV"): 
+                st.session_state.lang = "lv"
+                st.rerun()
 
         L = LANG_DATA[st.session_state.lang]
         st.divider()
@@ -51,7 +60,7 @@ def run_ui():
         # Навигация
         page = st.radio(L['nav_label'], [L['nav_mon'], L['nav_plan']], index=0)
 
-        # Настройки планировщика
+        # Переменные для планировщика
         target_price, power_kw = 0.15, 10.0
         if page == L['nav_plan']:
             st.divider()
@@ -60,7 +69,6 @@ def run_ui():
             power_kw = st.number_input(L['power_label'], min_value=0.0, value=10.0, step=1.0)
 
         st.divider()
-        # Кнопка обновления (теперь она всегда ровная и красивая)
         if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
             st.session_state.df = get_lv_prices_15min()
             st.rerun()
@@ -69,7 +77,7 @@ def run_ui():
     if "df" not in st.session_state:
         st.session_state.df = get_lv_prices_15min()
 
-    # 4. ОСНОВНОЙ КОНТЕНТ (БЕЗ ИЗМЕНЕНИЙ В ЛОГИКЕ)
+    # 4. ОСНОВНОЙ КОНТЕНТ
     if "df" in st.session_state:
         df = st.session_state.df
         today_cols = [c for c in df.columns if "Today" in c]
@@ -79,6 +87,7 @@ def run_ui():
             st.title(f":material/bolt: {L['title']}")
             c1, c2 = st.columns(2)
             c1.metric(L['avg_tod'], f"{avg_price:.4f} {L['unit']}")
+            
             tom_cols = [c for c in df.columns if "Tomorrow" in c]
             if tom_cols:
                 avg_tom = daily_average(df[["Hour"] + tom_cols])
