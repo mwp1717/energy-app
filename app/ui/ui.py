@@ -12,25 +12,21 @@ def run_ui():
     # 2. Умное скрытие интерфейса (оставляем только функционал сайдбара)
     st.markdown("""
         <style>
-        /* Полностью убираем футер и красный декор в углу */
-        footer {visibility: hidden;}
-        [data-testid="stDecoration"] {display:none;}
-        
-        /* Скрываем только лишние кнопки в хедере, оставляя саму полосу для работы сайдбара */
-        [data-testid="stHeader"] {
-            background-color: rgba(0,0,0,0);
-            color: rgba(0,0,0,0);
-        }
-        
-        /* Убираем кнопку GitHub и меню 'три точки' */
+        /* 1. Скрываем футер и меню "три точки" */
         #MainMenu {visibility: hidden;}
-        header {visibility: hidden;} 
+        footer {visibility: hidden;}
         
-        /* Возвращаем видимость кнопке сайдбара, если она спряталась */
-        .st-emotion-cache-zq59db {display: flex !important;}
+        /* 2. Скрываем кнопку "Deploy" и "Manage app" (справа сверху) */
+        [data-testid="stToolbar"] {visibility: hidden;}
         
-        /* Уплотняем контент, чтобы не было гигантского отступа сверху */
-        .block-container {padding-top: 2rem;}
+        /* 3. Скрываем цветную полоску декора сверху */
+        [data-testid="stDecoration"] {display:none;}
+
+        /* 4. САМОЕ ГЛАВНОЕ: Мы НЕ скрываем весь Header, а только делаем его прозрачным.
+           Благодаря этому кнопка-стрелочка (>) слева сверху ОСТАНЕТСЯ видимой и рабочей! */
+        [data-testid="stHeader"] {
+            background-color: transparent;
+        }
         </style>
         """, unsafe_allow_html=True)
 
