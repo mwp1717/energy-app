@@ -48,28 +48,28 @@ def run_ui():
             power_kw = st.number_input(L['power_label'], min_value=0.0, value=10.0, step=1.0)
 
         st.divider()
-        # Проверяем, есть ли данные. Если нет — загружаем сразу без кнопки
+            # Проверяем, есть ли данные. Если нет — загружаем сразу без кнопки
+        if "df" not in st.session_state:
+            st.session_state.df = get_lv_prices_15min()
+
+        # Кнопку можно оставить ниже, чтобы пользователь мог обновить вручную
+        # Загружаем данные сразу, если их еще нет в памяти
     if "df" not in st.session_state:
         st.session_state.df = get_lv_prices_15min()
 
-    # Кнопку можно оставить ниже, чтобы пользователь мог обновить вручную
-    # Загружаем данные сразу, если их еще нет в памяти
-if "df" not in st.session_state:
-    st.session_state.df = get_lv_prices_15min()
+    # Кнопку оставляем, если пользователь захочет обновить данные вручную
+    if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
+        st.session_state.df = get_lv_prices_15min()
 
-# Кнопку оставляем, если пользователь захочет обновить данные вручную
-if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
-    st.session_state.df = get_lv_prices_15min()
+        # --- ОСНОВНОЙ КОНТЕНТ ---
+        if "df" in st.session_state:
+            df = st.session_state.df
+            today_cols = [c for c in df.columns if "Today" in c]
+            avg_price = daily_average(df[["Hour"] + today_cols])
 
-    # --- ОСНОВНОЙ КОНТЕНТ ---
-    if "df" in st.session_state:
-        df = st.session_state.df
-        today_cols = [c for c in df.columns if "Today" in c]
-        avg_price = daily_average(df[["Hour"] + today_cols])
-
-        # ВКЛАДКА 1: МОНИТОРИНГ
-        if page == L['nav_mon']:
-            st.title(f":material/bolt: {L['title']}")
+            # ВКЛАДКА 1: МОНИТОРИНГ
+            if page == L['nav_mon']:
+                st.title(f":material/bolt: {L['title']}")
 
             # Метрики
             c1, c2 = st.columns(2)
