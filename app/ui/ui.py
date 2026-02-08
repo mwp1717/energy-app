@@ -6,15 +6,25 @@ from app.core.analysis import daily_average
 from app.ui.locales import LANG_DATA
 
 def run_ui():
-    # 1. Настройка страницы и скрытие интерфейса Streamlit
+    # 1. Настройка страницы
     st.set_page_config(page_title="Energy Terminal", layout="wide")
     
+    # 2. Улучшенное скрытие мусора (убираем лого, но оставляем кнопку сайдбара)
     st.markdown("""
         <style>
-        #MainMenu {visibility: hidden;}
+        /* Скрываем футер "Made with Streamlit" */
         footer {visibility: hidden;}
-        header {visibility: hidden;}
-        .stDecoration {display:none;}
+        
+        /* Скрываем тулбар и иконку GitHub, но сохраняем место для кнопки сайдбара */
+        [data-testid="stHeader"] {background: rgba(0,0,0,0); height: 0rem;}
+        [data-testid="stToolbar"] {visibility: hidden;}
+        
+        /* Полностью удаляем красный логотип Streamlit в углу */
+        [data-testid="stDecoration"] {display:none;}
+        #MainMenu {visibility: hidden;}
+        
+        /* Немного подправляем отступ сверху */
+        .block-container {padding-top: 1.5rem;}
         </style>
         """, unsafe_allow_html=True)
 
@@ -42,10 +52,11 @@ def run_ui():
         # Выбор режима (вкладки)
         page = st.radio(L['nav_label'], [L['nav_mon'], L['nav_plan']], index=0)
 
-        # ПОЯВЛЯЕТСЯ ТОЛЬКО В ПЛАНИРОВЩИКЕ
-        target_price = 0.15 # Значение по умолчанию
-        power_kw = 10.0     # Значение по умолчанию
+        # Значения по умолчанию для калькулятора (чтобы не было ошибок на первой вкладке)
+        target_price = 0.15 
+        power_kw = 10.0     
         
+        # Настройки планировщика (показываются только во второй вкладке)
         if page == L['nav_plan']:
             st.divider()
             st.subheader(L['settings_header'])
@@ -54,15 +65,15 @@ def run_ui():
 
         st.divider()
         
-        # Кнопка ручного обновления
+        # Кнопка ручного обновления (если вдруг автозагрузка не сработала)
         if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
             st.session_state.df = get_lv_prices_15min()
 
-    # 2. АВТОМАТИЧЕСКАЯ ЗАГРУЗКА (если данных еще нет в памяти)
+    # 3. АВТОМАТИЧЕСКАЯ ЗАГРУЗКА (срабатывает при первом входе)
     if "df" not in st.session_state:
         st.session_state.df = get_lv_prices_15min()
 
-    # 3. ОСНОВНОЙ КОНТЕНТ
+    # 4. ОТРИСОВКА КОНТЕНТА
     if "df" in st.session_state:
         df = st.session_state.df
         today_cols = [c for c in df.columns if "Today" in c]
@@ -72,7 +83,6 @@ def run_ui():
         if page == L['nav_mon']:
             st.title(f":material/bolt: {L['title']}")
 
-            # Метрики
             c1, c2 = st.columns(2)
             c1.metric(L['avg_tod'], f"{avg_price:.4f} {L['unit']}")
             tom_cols = [c for c in df.columns if "Tomorrow" in c]
@@ -82,7 +92,6 @@ def run_ui():
                           delta=f"{(avg_tom - avg_price):.4f}",
                           delta_color="inverse")
 
-            # График
             chart_data = transform_for_pro_chart(df)
             show_tom = st.toggle(L['tog'], value=False)
             plot_df = chart_data[chart_data['Day'] == "Today"]
@@ -91,7 +100,6 @@ def run_ui():
             
             st.line_chart(plot_df.set_index("Time")["Price"], color="#29b5e8")
 
-            # Таблица с цветовой кодировкой
             with st.expander(L['grid'], icon=":material/table_chart:"):
                 def apply_style(val):
                     if isinstance(val, (int, float)):
@@ -120,7 +128,6 @@ def run_ui():
                     prev_t = curr_t
                 blocks.append((start_t, prev_t, cheap_windows.iloc[-1]['Price']))
 
-                # Вывод карточек
                 for start, end, price in blocks:
                     duration = (end - start).seconds / 3600 + 0.25
                     savings = (avg_price - price) * power_kw * duration
