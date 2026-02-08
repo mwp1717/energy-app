@@ -9,22 +9,28 @@ def run_ui():
     # 1. Настройка страницы
     st.set_page_config(page_title="Energy Terminal", layout="wide")
     
-    # 2. Улучшенное скрытие мусора (убираем лого, но оставляем кнопку сайдбара)
+    # 2. Умное скрытие интерфейса (оставляем только функционал сайдбара)
     st.markdown("""
         <style>
-        /* Скрываем футер "Made with Streamlit" */
+        /* Полностью убираем футер и красный декор в углу */
         footer {visibility: hidden;}
-        
-        /* Скрываем тулбар и иконку GitHub, но сохраняем место для кнопки сайдбара */
-        [data-testid="stHeader"] {background: rgba(0,0,0,0); height: 0rem;}
-        [data-testid="stToolbar"] {visibility: hidden;}
-        
-        /* Полностью удаляем красный логотип Streamlit в углу */
         [data-testid="stDecoration"] {display:none;}
-        #MainMenu {visibility: hidden;}
         
-        /* Немного подправляем отступ сверху */
-        .block-container {padding-top: 1.5rem;}
+        /* Скрываем только лишние кнопки в хедере, оставляя саму полосу для работы сайдбара */
+        [data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0);
+            color: rgba(0,0,0,0);
+        }
+        
+        /* Убираем кнопку GitHub и меню 'три точки' */
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;} 
+        
+        /* Возвращаем видимость кнопке сайдбара, если она спряталась */
+        .st-emotion-cache-zq59db {display: flex !important;}
+        
+        /* Уплотняем контент, чтобы не было гигантского отступа сверху */
+        .block-container {padding-top: 2rem;}
         </style>
         """, unsafe_allow_html=True)
 
@@ -32,7 +38,6 @@ def run_ui():
     with st.sidebar:
         st.title(":material/settings: Control Panel")
 
-        # Переключатель языка
         if "lang" not in st.session_state: 
             st.session_state.lang = "en"
             
@@ -49,14 +54,12 @@ def run_ui():
         L = LANG_DATA[st.session_state.lang]
         st.divider()
 
-        # Выбор режима (вкладки)
         page = st.radio(L['nav_label'], [L['nav_mon'], L['nav_plan']], index=0)
 
-        # Значения по умолчанию для калькулятора (чтобы не было ошибок на первой вкладке)
+        # Значения для расчетов
         target_price = 0.15 
         power_kw = 10.0     
         
-        # Настройки планировщика (показываются только во второй вкладке)
         if page == L['nav_plan']:
             st.divider()
             st.subheader(L['settings_header'])
@@ -64,33 +67,29 @@ def run_ui():
             power_kw = st.number_input(L['power_label'], min_value=0.0, value=10.0, step=1.0)
 
         st.divider()
-        
-        # Кнопка ручного обновления (если вдруг автозагрузка не сработала)
         if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
             st.session_state.df = get_lv_prices_15min()
 
-    # 3. АВТОМАТИЧЕСКАЯ ЗАГРУЗКА (срабатывает при первом входе)
+    # 3. АВТОЗАГРУЗКА ДАННЫХ
     if "df" not in st.session_state:
         st.session_state.df = get_lv_prices_15min()
 
-    # 4. ОТРИСОВКА КОНТЕНТА
+    # 4. КОНТЕНТ
     if "df" in st.session_state:
         df = st.session_state.df
         today_cols = [c for c in df.columns if "Today" in c]
         avg_price = daily_average(df[["Hour"] + today_cols])
 
-        # ВКЛАДКА 1: МОНИТОРИНГ
         if page == L['nav_mon']:
             st.title(f":material/bolt: {L['title']}")
-
             c1, c2 = st.columns(2)
             c1.metric(L['avg_tod'], f"{avg_price:.4f} {L['unit']}")
+            
             tom_cols = [c for c in df.columns if "Tomorrow" in c]
             if tom_cols:
                 avg_tom = daily_average(df[["Hour"] + tom_cols])
                 c2.metric(L['avg_tom'], f"{avg_tom:.4f} {L['unit']}", 
-                          delta=f"{(avg_tom - avg_price):.4f}",
-                          delta_color="inverse")
+                          delta=f"{(avg_tom - avg_price):.4f}", delta_color="inverse")
 
             chart_data = transform_for_pro_chart(df)
             show_tom = st.toggle(L['tog'], value=False)
@@ -108,10 +107,8 @@ def run_ui():
                     return ''
                 st.dataframe(df.style.applymap(apply_style, subset=df.columns[1:]), use_container_width=True)
 
-        # ВКЛАДКА 2: ПЛАНИРОВЩИК
         else:
             st.title(f":material/calculate: {L['plan_title']}")
-
             full_data = transform_for_pro_chart(df)
             cheap_windows = full_data[full_data['Price'] <= target_price].copy()
 
@@ -131,19 +128,16 @@ def run_ui():
                 for start, end, price in blocks:
                     duration = (end - start).seconds / 3600 + 0.25
                     savings = (avg_price - price) * power_kw * duration
-
                     with st.container(border=True):
                         c_t, c_m = st.columns([0.4, 0.6])
                         time_str = f"{start.strftime('%H:%M')} - {(end + timedelta(minutes=15)).strftime('%H:%M')}"
                         c_t.subheader(f":material/schedule: {time_str}")
                         c_t.caption(f"{price:.4f} {L['unit']}")
-
                         if savings > 0:
                             c_m.success(f"{L['potential_savings']} **{savings:.2f} €**")
-                            c_m.caption(f"{L['vs_avg']} {avg_price:.4f}")
                         else:
                             c_m.warning(f"{L['cost_now']} **{price * power_kw * duration:.2f} €**")
             else:
                 st.info(f"No periods below {target_price:.4f}. Adjust settings in the sidebar.")
     else:
-        st.info("Please wait, loading energy data...")
+        st.info("Loading energy data...")
