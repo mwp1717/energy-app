@@ -9,24 +9,27 @@ def run_ui():
     # 1. Настройка страницы
     st.set_page_config(page_title="Energy Terminal", layout="wide")
     
-    # 2. Умное скрытие интерфейса (оставляем только функционал сайдбара)
+    # 2. БЕЗОПАСНОЕ СКРЫТИЕ (не ломает кнопку сайдбара)
     st.markdown("""
         <style>
-        /* 1. Скрываем футер и меню "три точки" */
-        #MainMenu {visibility: hidden;}
+        /* Скрываем футер внизу страницы */
         footer {visibility: hidden;}
         
-        /* 2. Скрываем кнопку "Deploy" и "Manage app" (справа сверху) */
+        /* Скрываем только меню "три точки" и иконку GitHub, НЕ трогая весь хедер целиком */
+        #MainMenu {visibility: hidden;}
         [data-testid="stToolbar"] {visibility: hidden;}
         
-        /* 3. Скрываем цветную полоску декора сверху */
+        /* Убираем красную полоску декора сверху */
         [data-testid="stDecoration"] {display:none;}
-
-        /* 4. САМОЕ ГЛАВНОЕ: Мы НЕ скрываем весь Header, а только делаем его прозрачным.
-           Благодаря этому кнопка-стрелочка (>) слева сверху ОСТАНЕТСЯ видимой и рабочей! */
+        
+        /* Делаем сам хедер прозрачным, чтобы он не перекрывал график, 
+           но кнопка открытия сайдбара осталась рабочей */
         [data-testid="stHeader"] {
-            background-color: transparent;
+            background: rgba(0,0,0,0);
         }
+        
+        /* Убираем лишний отступ сверху, чтобы приложение выглядело компактнее */
+        .block-container {padding-top: 1.5rem;}
         </style>
         """, unsafe_allow_html=True)
 
@@ -52,7 +55,6 @@ def run_ui():
 
         page = st.radio(L['nav_label'], [L['nav_mon'], L['nav_plan']], index=0)
 
-        # Значения для расчетов
         target_price = 0.15 
         power_kw = 10.0     
         
@@ -66,11 +68,11 @@ def run_ui():
         if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
             st.session_state.df = get_lv_prices_15min()
 
-    # 3. АВТОЗАГРУЗКА ДАННЫХ
+    # 3. АВТОЗАГРУЗКА (срабатывает при первом входе)
     if "df" not in st.session_state:
         st.session_state.df = get_lv_prices_15min()
 
-    # 4. КОНТЕНТ
+    # 4. ОТРИСОВКА КОНТЕНТА
     if "df" in st.session_state:
         df = st.session_state.df
         today_cols = [c for c in df.columns if "Today" in c]
@@ -80,7 +82,6 @@ def run_ui():
             st.title(f":material/bolt: {L['title']}")
             c1, c2 = st.columns(2)
             c1.metric(L['avg_tod'], f"{avg_price:.4f} {L['unit']}")
-            
             tom_cols = [c for c in df.columns if "Tomorrow" in c]
             if tom_cols:
                 avg_tom = daily_average(df[["Hour"] + tom_cols])
@@ -136,4 +137,4 @@ def run_ui():
             else:
                 st.info(f"No periods below {target_price:.4f}. Adjust settings in the sidebar.")
     else:
-        st.info("Loading energy data...")
+        st.info("Please wait, loading energy data...")
