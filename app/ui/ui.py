@@ -8,6 +8,15 @@ from app.ui.locales import LANG_DATA
 
 def run_ui():
     st.set_page_config(page_title="Energy Terminal", layout="wide")
+    # Скрываем иконку меню, футер и хедер Streamlit
+    st.markdown("""
+        <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        stDecoration {display:none;}
+        </style>
+        """, unsafe_allow_html=True)
 
     # --- SIDEBAR: УМНАЯ НАВИГАЦИЯ И НАСТРОЙКИ ---
     with st.sidebar:
@@ -39,8 +48,13 @@ def run_ui():
             power_kw = st.number_input(L['power_label'], min_value=0.0, value=10.0, step=1.0)
 
         st.divider()
-        if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
-            st.session_state.df = get_lv_prices_15min()
+        # Проверяем, есть ли данные. Если нет — загружаем сразу без кнопки
+    if "df" not in st.session_state:
+        st.session_state.df = get_lv_prices_15min()
+
+    # Кнопку можно оставить ниже, чтобы пользователь мог обновить вручную
+    if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
+        st.session_state.df = get_lv_prices_15min()
 
     # --- ОСНОВНОЙ КОНТЕНТ ---
     if "df" in st.session_state:
