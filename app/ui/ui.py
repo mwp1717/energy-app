@@ -6,33 +6,53 @@ from app.core.analysis import daily_average
 from app.ui.locales import LANG_DATA
 
 def run_ui():
-    # 1. Настройка страницы (Стандартная, без скрытия элементов)
+    # 1. Настройка страницы
     st.set_page_config(page_title="Energy Terminal", layout="wide")
+    
+    # 2. Чистый интерфейс (скрываем только футер и мусор)
+    st.markdown("""
+        <style>
+        footer {visibility: hidden;}
+        [data-testid="stDecoration"] {display:none;}
+        #MainMenu {visibility: hidden;}
+        [data-testid="stToolbar"] {visibility: hidden;}
+        /* Убираем лишний отступ сверху */
+        .block-container {padding-top: 2rem;}
+        </style>
+        """, unsafe_allow_html=True)
 
-    # --- SIDEBAR: УМНАЯ НАВИГАЦИЯ И НАСТРОЙКИ ---
+    # --- SIDEBAR: Control Panel ---
     with st.sidebar:
         st.title(":material/settings: Control Panel")
 
-        # Настройка языка
+        # 🌐 ДИЗАЙНЕРСКИЙ ПЕРЕКЛЮЧАТЕЛЬ ЯЗЫКА
         if "lang" not in st.session_state: 
             st.session_state.lang = "en"
-            
-        l1, l2, _ = st.columns([0.2, 0.2, 0.6])
-        with l1:
-            if st.button("EN"): st.session_state.lang = "en"
-        with l2:
-            if st.button("LV"): st.session_state.lang = "lv"
+
+        # Вместо ломающихся кнопок используем красивые "пилюли"
+        lang_map = {"en": "🇺🇸 EN", "lv": "🇱🇻 LV"}
+        selected_lang_name = st.radio(
+            "Language",
+            options=list(lang_map.values()),
+            index=0 if st.session_state.lang == "en" else 1,
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        
+        # Обновляем язык, если выбрали другой
+        new_lang = "en" if "EN" in selected_lang_name else "lv"
+        if new_lang != st.session_state.lang:
+            st.session_state.lang = new_lang
+            st.rerun()
 
         L = LANG_DATA[st.session_state.lang]
         st.divider()
 
-        # Выбор страницы
+        # Навигация
         page = st.radio(L['nav_label'], [L['nav_mon'], L['nav_plan']], index=0)
 
-        # Переменные для планировщика (значения по умолчанию)
-        target_price = 0.15 
-        power_kw = 10.0     
-        
+        # Настройки планировщика
+        target_price, power_kw = 0.15, 10.0
         if page == L['nav_plan']:
             st.divider()
             st.subheader(L['settings_header'])
@@ -40,26 +60,25 @@ def run_ui():
             power_kw = st.number_input(L['power_label'], min_value=0.0, value=10.0, step=1.0)
 
         st.divider()
-        # Кнопка ручного обновления
+        # Кнопка обновления (теперь она всегда ровная и красивая)
         if st.button(L['btn'], icon=":material/sync:", type="primary", use_container_width=True):
             st.session_state.df = get_lv_prices_15min()
+            st.rerun()
 
-    # 2. АВТОЗАГРУЗКА ДАННЫХ (оставляем, чтобы работало само)
+    # 3. АВТОЗАГРУЗКА ДАННЫХ
     if "df" not in st.session_state:
         st.session_state.df = get_lv_prices_15min()
 
-    # 3. ОСНОВНОЙ КОНТЕНТ
+    # 4. ОСНОВНОЙ КОНТЕНТ (БЕЗ ИЗМЕНЕНИЙ В ЛОГИКЕ)
     if "df" in st.session_state:
         df = st.session_state.df
         today_cols = [c for c in df.columns if "Today" in c]
         avg_price = daily_average(df[["Hour"] + today_cols])
 
-        # ВКЛАДКА: МОНИТОРИНГ
         if page == L['nav_mon']:
             st.title(f":material/bolt: {L['title']}")
             c1, c2 = st.columns(2)
             c1.metric(L['avg_tod'], f"{avg_price:.4f} {L['unit']}")
-            
             tom_cols = [c for c in df.columns if "Tomorrow" in c]
             if tom_cols:
                 avg_tom = daily_average(df[["Hour"] + tom_cols])
@@ -77,7 +96,6 @@ def run_ui():
             with st.expander(L['grid'], icon=":material/table_chart:"):
                 st.dataframe(df, use_container_width=True)
 
-        # ВКЛАДКА: ПЛАНИРОВЩИК
         else:
             st.title(f":material/calculate: {L['plan_title']}")
             full_data = transform_for_pro_chart(df)
